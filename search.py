@@ -12,13 +12,13 @@ settings = get_settings()
 
 print("Loading BGE-M3...")
 embedding_model = BGEM3FlagModel(
-    "BAAI/bge-m3",
+    settings.embedding_model_name,
     use_fp16=True,
 )
 
 print("Loading Reranker...")
 reranker = CrossEncoder(
-    "BAAI/bge-reranker-v2-m3",
+    settings.reranker_model_name,
     max_length=512,
 )
 
