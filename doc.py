@@ -1,12 +1,10 @@
 from typing import Any, cast
-
 import numpy as np
 from numpy.typing import NDArray
 from docling.document_converter import DocumentConverter
 from docling.chunking import HybridChunker
-from sentence_transformers import SentenceTransformer
 from qdrant_client import QdrantClient, models
-from qdrant_client.models import Distance, VectorParams, PointStruct
+from qdrant_client.models import PointStruct
 from FlagEmbedding import BGEM3FlagModel
 
 

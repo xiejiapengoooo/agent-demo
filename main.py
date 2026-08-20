@@ -2,7 +2,7 @@ from search import search
 
 
 def run():
-        return
+    return
 
 
 if __name__ == "__main__":

@@ -4,21 +4,10 @@ from numpy.typing import NDArray
 from FlagEmbedding import BGEM3FlagModel
 from sentence_transformers import CrossEncoder
 from qdrant_client import QdrantClient, models
+from config import get_settings
 
 
-QDRANT_URL = "http://localhost:6333"
-
-COLLECTION_NAME = "pdf_rag"
-
-DENSE_VECTOR_NAME = "dense"
-SPARSE_VECTOR_NAME = "sparse"
-
-DENSE_TOP_K = 30
-SPARSE_TOP_K = 30
-
-FUSION_TOP_K = 30
-
-FINAL_TOP_K = 5
+settings = get_settings()
 
 
 print("Loading BGE-M3...")
@@ -33,7 +22,7 @@ reranker = CrossEncoder(
     max_length=512,
 )
 
-client = QdrantClient(url=QDRANT_URL)
+client = QdrantClient(url=settings.vector_db_base_url)
 
 
 def search(query: str):
@@ -56,21 +45,21 @@ def search(query: str):
     )
 
     results = client.query_points(
-        collection_name=COLLECTION_NAME,
+        collection_name=settings.collection_name,
         prefetch=[
             models.Prefetch(
                 query=dense_query.tolist(),
-                using=DENSE_VECTOR_NAME,
-                limit=DENSE_TOP_K,
+                using=settings.dense_vector_name,
+                limit=settings.dense_top_k,
             ),
             models.Prefetch(
                 query=sparse_vector,
-                using=SPARSE_VECTOR_NAME,
-                limit=SPARSE_TOP_K,
+                using=settings.sparse_vector_name,
+                limit=settings.sparse_top_k,
             ),
         ],
         query=models.FusionQuery(fusion=models.Fusion.RRF),
-        limit=FUSION_TOP_K,
+        limit=settings.fusion_top_k,
         with_payload=True,
     )
 
@@ -100,4 +89,4 @@ def search(query: str):
         reverse=True,
     )
 
-    return ranked_results[:FINAL_TOP_K]
+    return ranked_results[: settings.final_top_k]
