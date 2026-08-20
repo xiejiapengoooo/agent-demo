@@ -5,6 +5,7 @@ from FlagEmbedding import BGEM3FlagModel
 from sentence_transformers import CrossEncoder
 from qdrant_client import QdrantClient, models
 from config import get_settings
+from schema import SearchResult
 
 
 settings = get_settings()
@@ -25,7 +26,7 @@ reranker = CrossEncoder(
 client = QdrantClient(url=settings.vector_db_base_url)
 
 
-def search(query: str):
+def search(query: str) -> list[SearchResult]:
     output = embedding_model.encode(
         [query],
         return_dense=True,
@@ -84,9 +85,25 @@ def search(query: str):
     rerank_scores = reranker.predict(pairs)
 
     ranked_results = sorted(
-        zip(candidates, rerank_scores),
-        key=lambda x: float(x[1]),
-        reverse=True,
-    )
+          zip(candidates, rerank_scores),
+          key=lambda item: float(item[1]),
+          reverse=True,
+      )
 
-    return ranked_results[: settings.final_top_k]
+    search_results: list[SearchResult] = []
+    for point, rerank_score in ranked_results:
+        payload = point.payload or {}
+
+        search_results.append(
+            SearchResult(
+                chunk_id=str(point.id),
+                text=str(payload["text"]),
+                source=str(payload["source"]),
+                chunk_index=int(payload["chunk_index"]),
+                metadata=payload.get("metadata", {}),
+                fusion_score=float(point.score),
+                rerank_score=float(rerank_score),
+            )
+        )
+
+    return search_results

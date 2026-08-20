@@ -25,7 +25,6 @@ class Settings(BaseSettings):
     dense_top_k: int = 30
     sparse_top_k: int = 30
     fusion_top_k: int = 30
-    final_top_k: int = 5
     embedding_size: int = 1024
     qdrant_upload_batch_size: int = 64
 
