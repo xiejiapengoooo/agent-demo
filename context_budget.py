@@ -1,9 +1,10 @@
 from collections.abc import Callable
 
 from langchain_core.language_models.chat_models import BaseChatModel
+from langchain_core.messages import BaseMessage
 from langchain_core.prompts import ChatPromptTemplate
 
-from schema import PackedContext, ContextBudget
+from schema import ContextBudget
 
 
 class ContextBudgetExceededError(ValueError):
@@ -38,18 +39,25 @@ class ContextBudgetManager:
         self,
         query: str,
         context: str,
+        history: list[BaseMessage] | None = None,
     ) -> int:
         messages = self.prompt.format_messages(
+            history=history or [],
             query=query.strip(),
             context=context,
         )
         return self.llm.get_num_tokens_from_messages(messages)
 
-    def calculate(self, query: str) -> ContextBudget:
-        # 空 Context 时，计算 System Prompt、Query 和消息格式开销。
+    def calculate(
+        self,
+        query: str,
+        history: list[BaseMessage] | None = None,
+    ) -> ContextBudget:
+        # 空 Context 时，计算系统提示词、历史、当前问题和消息格式开销。
         fixed_input_tokens = self.count_prompt_tokens(
             query=query,
             context="",
+            history=history,
         )
 
         max_context_tokens = (
@@ -60,7 +68,9 @@ class ContextBudgetManager:
         )
 
         if max_context_tokens <= 0:
-            raise ContextBudgetExceededError("固定 Prompt 和输出预留已经超过模型窗口")
+            raise ContextBudgetExceededError(
+                "系统提示词、历史消息、当前问题和输出预留已经超过模型窗口"
+            )
 
         return ContextBudget(
             fixed_input_tokens=fixed_input_tokens,
@@ -73,11 +83,13 @@ class ContextBudgetManager:
         self,
         query: str,
         budget: ContextBudget,
+        history: list[BaseMessage] | None = None,
     ) -> Callable[[str], int]:
         def count_context_tokens(context: str) -> int:
             total_input_tokens = self.count_prompt_tokens(
                 query=query,
                 context=context,
+                history=history,
             )
 
             return max(
@@ -91,10 +103,12 @@ class ContextBudgetManager:
         self,
         query: str,
         context: str,
+        history: list[BaseMessage] | None = None,
     ) -> int:
         input_tokens = self.count_prompt_tokens(
             query=query,
             context=context,
+            history=history,
         )
 
         required_tokens = (

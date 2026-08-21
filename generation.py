@@ -1,6 +1,7 @@
 from langchain_core.language_models.chat_models import BaseChatModel
+from langchain_core.messages import BaseMessage
 from langchain_core.output_parsers import StrOutputParser
-from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_openai import ChatOpenAI
 
 from config import get_settings
@@ -29,6 +30,7 @@ HUMAN_PROMPT = """用户问题：
 ANSWER_PROMPT = ChatPromptTemplate.from_messages(
     [
         ("system", SYSTEM_PROMPT),
+        MessagesPlaceholder("history", optional=True),
         ("human", HUMAN_PROMPT),
     ]
 )
@@ -42,6 +44,7 @@ def create_llm() -> ChatOpenAI:
         model=settings.openai_model,
         base_url=settings.openai_base_url,
         api_key=settings.openai_api_key,
+        max_completion_tokens=settings.openai_max_completion_tokens,
     )
 
 
@@ -49,6 +52,7 @@ def generate_answer(
     query: str,
     context: PackedContext,
     llm: BaseChatModel,
+    history: list[BaseMessage] | None = None,
 ) -> str:
     if not context.text:
         return "根据现有资料无法确定。"
@@ -59,6 +63,7 @@ def generate_answer(
     chain = ANSWER_PROMPT | llm | StrOutputParser()
     answer = chain.invoke(
         {
+            "history": history or [],
             "query": query.strip(),
             "context": context.text,
         }
