@@ -37,7 +37,7 @@ def answer_query(
         context_counter=context_counter,
         max_chunks=5,
     )
-    manager.validate(
+    _ = manager.validate(
         query=query,
         context=packed.text,
         history=history,
