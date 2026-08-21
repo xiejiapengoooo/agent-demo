@@ -85,10 +85,10 @@ def search(query: str) -> list[SearchResult]:
     rerank_scores = reranker.predict(pairs)
 
     ranked_results = sorted(
-          zip(candidates, rerank_scores),
-          key=lambda item: float(item[1]),
-          reverse=True,
-      )
+        zip(candidates, rerank_scores),
+        key=lambda item: float(item[1]),
+        reverse=True,
+    )
 
     search_results: list[SearchResult] = []
     for point, rerank_score in ranked_results:

@@ -4,7 +4,7 @@ from context import prepare_context_chunks, pack_context
 
 
 def run():
-    query = "我是谁？"
+    query = "我是谁？".strip()
     results = search(query)
     chunks = prepare_context_chunks(results)
     packed = pack_context(

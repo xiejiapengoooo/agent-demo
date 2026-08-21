@@ -3,19 +3,19 @@ import unicodedata
 from collections.abc import Callable
 from typing import Any
 from schema import (
-     Citation,
-     ContextChunk,
-     PackedContext,
-     SearchResult,
- )
+    Citation,
+    ContextChunk,
+    PackedContext,
+    SearchResult,
+)
 
 
 CONTEXT_SEPARATOR = "\n\n---\n\n"
 
 
 def normalize_text(text: str) -> str:
-      text = unicodedata.normalize("NFKC", text)
-      return re.sub(r"\s+", " ", text).strip()
+    text = unicodedata.normalize("NFKC", text)
+    return re.sub(r"\s+", " ", text).strip()
 
 
 def are_adjacent(
@@ -24,8 +24,7 @@ def are_adjacent(
 ) -> bool:
     return (
         left.source == right.source
-        and extract_section(left.metadata)
-        == extract_section(right.metadata)
+        and extract_section(left.metadata) == extract_section(right.metadata)
         and right.chunk_index == left.chunk_index + 1
     )
 
@@ -62,18 +61,16 @@ def merge_text(left: str, right: str) -> str | None:
 
 
 def extract_section(metadata: dict[str, Any]) -> str:
-      headings = metadata.get("headings")
+    headings = metadata.get("headings")
 
-      if not isinstance(headings, list):
-          return ""
+    if not isinstance(headings, list):
+        return ""
 
-      valid_headings = [
-          str(heading).strip()
-          for heading in headings
-          if str(heading).strip()
-      ]
+    valid_headings = [
+        str(heading).strip() for heading in headings if str(heading).strip()
+    ]
 
-      return " > ".join(valid_headings)
+    return " > ".join(valid_headings)
 
 
 def extract_pages(metadata: dict[str, Any]) -> list[int]:
@@ -105,15 +102,15 @@ def extract_pages(metadata: dict[str, Any]) -> list[int]:
 
 
 def to_context_chunk(result: SearchResult) -> ContextChunk:
-      return ContextChunk(
-          text=result.text,
-          source=result.source,
-          section=extract_section(result.metadata),
-          pages=extract_pages(result.metadata),
-          chunk_ids=[result.chunk_id],
-          chunk_indexes=[result.chunk_index],
-          rerank_score=result.rerank_score,
-      )
+    return ContextChunk(
+        text=result.text,
+        source=result.source,
+        section=extract_section(result.metadata),
+        pages=extract_pages(result.metadata),
+        chunk_ids=[result.chunk_id],
+        chunk_indexes=[result.chunk_index],
+        rerank_score=result.rerank_score,
+    )
 
 
 def merge_adjacent_results(
@@ -147,9 +144,7 @@ def merge_adjacent_results(
             current = to_context_chunk(result)
         else:
             current.text = merged_text
-            current.pages = sorted(
-                set(current.pages + extract_pages(result.metadata))
-            )
+            current.pages = sorted(set(current.pages + extract_pages(result.metadata)))
             current.chunk_ids.append(result.chunk_id)
             current.chunk_indexes.append(result.chunk_index)
             current.rerank_score = max(
@@ -208,10 +203,10 @@ def prepare_context_chunks(
 
 
 def format_pages(pages: list[int]) -> str:
-      if not pages:
-          return "未知"
+    if not pages:
+        return "未知"
 
-      return "、".join(str(page) for page in pages)
+    return "、".join(str(page) for page in pages)
 
 
 def format_context_block(
@@ -255,9 +250,7 @@ def pack_context(
     for chunk in sorted_chunks:
         citation_id = f"S{len(selected_chunks) + 1}"
         block = format_context_block(citation_id, chunk)
-        candidate_text = CONTEXT_SEPARATOR.join(
-            [*context_blocks, block]
-        )
+        candidate_text = CONTEXT_SEPARATOR.join([*context_blocks, block])
         candidate_token_count = count_tokens(candidate_text)
 
         if candidate_token_count > max_context_tokens:

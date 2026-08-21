@@ -26,10 +26,12 @@ HUMAN_PROMPT = """用户问题：
 </context>""".strip()
 
 
-ANSWER_PROMPT = ChatPromptTemplate.from_messages([
-    ("system", SYSTEM_PROMPT),
-    ("human", HUMAN_PROMPT),
-])
+ANSWER_PROMPT = ChatPromptTemplate.from_messages(
+    [
+        ("system", SYSTEM_PROMPT),
+        ("human", HUMAN_PROMPT),
+    ]
+)
 
 
 settings = get_settings()

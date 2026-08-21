@@ -1,5 +1,14 @@
 from typing import Any
 from pydantic import BaseModel, Field
+from dataclasses import dataclass
+
+
+@dataclass(frozen=True)
+class ContextBudget:
+    fixed_input_tokens: int
+    max_context_tokens: int
+    max_completion_tokens: int
+    safety_margin_tokens: int
 
 
 class SearchResult(BaseModel):

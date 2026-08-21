@@ -21,7 +21,9 @@ def get_document_paths() -> list[Path]:
         path
         for path in settings.docs_dir.rglob("*")
         if path.is_file()
-        and not any(part.startswith(".") for part in path.relative_to(settings.docs_dir).parts)
+        and not any(
+            part.startswith(".") for part in path.relative_to(settings.docs_dir).parts
+        )
     )
 
 
@@ -130,10 +132,14 @@ def run() -> None:
                 embedding_model,
                 client,
             )
-            print(f"Imported {document_path.relative_to(settings.docs_dir)}: {chunk_count} chunks")
+            print(
+                f"Imported {document_path.relative_to(settings.docs_dir)}: {chunk_count} chunks"
+            )
         except Exception as error:
             failed_documents.append((document_path, error))
-            print(f"Failed to import {document_path.relative_to(settings.docs_dir)}: {error}")
+            print(
+                f"Failed to import {document_path.relative_to(settings.docs_dir)}: {error}"
+            )
 
     print(
         f"Import completed: {len(document_paths) - len(failed_documents)} documents, "
