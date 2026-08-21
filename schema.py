@@ -11,7 +11,7 @@ class ContextBudget:
     safety_margin_tokens: int
 
 
-class SearchResult(BaseModel):
+class KnowledgeToolSearchResult(BaseModel):
     chunk_id: str
     text: str
     source: str

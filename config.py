@@ -12,14 +12,14 @@ class Settings(BaseSettings):
 
     docs_dir: Path = Path("docs")
 
-    openai_base_url: str = ""
-    openai_model: str = ""
+    openai_base_url: str = "https://www.su8.codes/v1"
+    openai_model: str = "gpt-5.6-luna"
     openai_api_key: SecretStr | None = None
     openai_context_window: int = 1_050_000
     openai_max_completion_tokens: int = 4096
     openai_token_safety_margin: int = 1024
 
-    vector_db_base_url: str = ""
+    vector_db_base_url: str = "http://localhost:6333"
     embedding_model_name: str = "BAAI/bge-m3"
     reranker_model_name: str = "BAAI/bge-reranker-v2-m3"
     collection_name: str = "demo_rag"
