@@ -82,22 +82,23 @@ class ContextBudgetManager:
     def create_context_counter(
         self,
         query: str,
-        budget: ContextBudget,
         history: list[BaseMessage] | None = None,
-    ) -> Callable[[str], int]:
-        def count_context_tokens(context: str) -> int:
+    ) -> Callable[[str], bool]:
+        def is_context_over_limit(context: str) -> bool:
             total_input_tokens = self.count_prompt_tokens(
                 query=query,
                 context=context,
                 history=history,
             )
 
-            return max(
-                total_input_tokens - budget.fixed_input_tokens,
-                0,
+            required_tokens = (
+                total_input_tokens
+                + self.max_completion_tokens
+                + self.safety_margin_tokens
             )
+            return required_tokens > self.context_window
 
-        return count_context_tokens
+        return is_context_over_limit
 
     def validate(
         self,

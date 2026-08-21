@@ -40,6 +40,5 @@ class Citation(BaseModel):
 
 class PackedContext(BaseModel):
     text: str
-    token_count: int
     chunks: list[ContextChunk] = Field(default_factory=list)
     citations: dict[str, Citation] = Field(default_factory=dict)

@@ -226,20 +226,15 @@ def format_context_block(
 
 def pack_context(
     chunks: list[ContextChunk],
-    count_tokens: Callable[[str], int],
-    max_context_tokens: int,
+    context_counter: Callable[[str], bool],
     max_chunks: int = 5,
 ) -> PackedContext:
-    if max_context_tokens <= 0:
-        raise ValueError("max_context_tokens 必须大于 0")
-
     if max_chunks <= 0:
         raise ValueError("max_chunks 必须大于 0")
 
     selected_chunks: list[ContextChunk] = []
     context_blocks: list[str] = []
     citations: dict[str, Citation] = {}
-    token_count = 0
 
     sorted_chunks = sorted(
         chunks,
@@ -251,14 +246,12 @@ def pack_context(
         citation_id = f"S{len(selected_chunks) + 1}"
         block = format_context_block(citation_id, chunk)
         candidate_text = CONTEXT_SEPARATOR.join([*context_blocks, block])
-        candidate_token_count = count_tokens(candidate_text)
 
-        if candidate_token_count > max_context_tokens:
+        if context_counter(candidate_text):
             continue
 
         selected_chunks.append(chunk)
         context_blocks.append(block)
-        token_count = candidate_token_count
         citations[citation_id] = Citation(
             source=chunk.source,
             section=chunk.section,
@@ -271,7 +264,6 @@ def pack_context(
 
     return PackedContext(
         text=CONTEXT_SEPARATOR.join(context_blocks),
-        token_count=token_count,
         chunks=selected_chunks,
         citations=citations,
     )
