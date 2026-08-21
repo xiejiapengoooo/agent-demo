@@ -15,6 +15,9 @@ class Settings(BaseSettings):
     openai_base_url: str = ""
     openai_model: str = ""
     openai_api_key: SecretStr | None = None
+    openai_context_window: int = 1_050_000
+    openai_max_completion_tokens: int = 4096
+    openai_token_safety_margin: int = 1024
 
     vector_db_base_url: str = ""
     embedding_model_name: str = "BAAI/bge-m3"
