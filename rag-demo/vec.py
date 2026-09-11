@@ -10,10 +10,12 @@ from transformers import AutoTokenizer
 
 BASE_DIR = Path(__file__).resolve().parent
 SOURCE_DIR = BASE_DIR / "source"
+MINERU_OUTPUT_DIR = BASE_DIR / "mineru-output"
 DB_DIR = BASE_DIR / "db"
 EMBED_MODEL_ID = "BAAI/bge-m3"
 
-source_files = list(SOURCE_DIR.glob("*.pdf"))
+source_files = list(SOURCE_DIR.rglob("*.pdf"))
+mineru_output_files = list(MINERU_OUTPUT_DIR.rglob("*_content_list_v2.json"))
 
 tokenizer = HuggingFaceTokenizer(
     tokenizer=AutoTokenizer.from_pretrained(EMBED_MODEL_ID)
