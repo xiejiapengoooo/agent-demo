@@ -12,5 +12,5 @@ dependencies = [
     "langchain-docling>=3.0.0",
     "langchain-huggingface>=1.2.2",
     "langchain-text-splitters>=1.1.2",
-    "sentence-transformers>=6.0.1",
+    "mineru[all]>=3.4.5",
 ]
