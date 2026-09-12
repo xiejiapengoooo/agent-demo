@@ -1,4 +1,7 @@
 import json
+import shutil
+import subprocess
+import sys
 from html.parser import HTMLParser
 from pathlib import Path
 from typing import Any
@@ -18,8 +21,8 @@ CHUNK_SIZE = 500
 CHUNK_OVERLAP = 80
 SKIP_TYPES = {"header", "footer", "page_header", "page_footer", "page_number"}
 
-source_files = list(SOURCE_DIR.rglob("*.pdf"))
-mineru_output_files = list(MINERU_OUTPUT_DIR.rglob("*_content_list_v2.json"))
+
+source_files: list[Path] = []
 
 
 class HTMLTextParser(HTMLParser):
@@ -50,6 +53,39 @@ def html_to_text(value: str) -> str:
     parser = HTMLTextParser()
     parser.feed(value)
     return clean_text("".join(parser.parts))
+
+
+def run_mineru() -> list[Path]:
+    source_files = sorted(SOURCE_DIR.rglob("*.pdf"))
+    if not source_files:
+        raise FileNotFoundError(f"在 {SOURCE_DIR} 中没有找到 PDF 文件")
+
+    if MINERU_OUTPUT_DIR.exists():
+        if not MINERU_OUTPUT_DIR.is_dir():
+            raise NotADirectoryError(MINERU_OUTPUT_DIR)
+        shutil.rmtree(MINERU_OUTPUT_DIR)
+    MINERU_OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
+    subprocess.run(
+        [
+            sys.executable,
+            "-m",
+            "mineru.cli.client",
+            "--path",
+            str(SOURCE_DIR),
+            "--output",
+            str(MINERU_OUTPUT_DIR),
+            "--backend",
+            "pipeline",
+            "--method",
+            "auto",
+            "--lang",
+            "ch",
+        ],
+        check=True,
+    )
+
+    return source_files
 
 
 def collect_text(value: Any) -> list[str]:
@@ -147,6 +183,13 @@ def build_documents(path: Path, splitter) -> list[Document]:
 
 
 if __name__ == "__main__":
+    source_files = run_mineru()
+    mineru_output_files = sorted(MINERU_OUTPUT_DIR.rglob("*_content_list_v2.json"))
+    if not mineru_output_files:
+        raise FileNotFoundError(
+            f"MinerU 没有生成 *_content_list_v2.json：{MINERU_OUTPUT_DIR}"
+        )
+
     tokenizer = AutoTokenizer.from_pretrained(EMBED_MODEL_ID)
     splitter = RecursiveCharacterTextSplitter.from_huggingface_tokenizer(
         tokenizer,
@@ -160,9 +203,7 @@ if __name__ == "__main__":
         for doc in build_documents(output_file, splitter)
     ]
     if not all_docs:
-        raise FileNotFoundError(
-            f"no *_content_list_v2.json files found in {MINERU_OUTPUT_DIR}"
-        )
+        raise FileNotFoundError(f"MinerU 没有解析出文档内容：{MINERU_OUTPUT_DIR}")
 
     embeddings = HuggingFaceEmbeddings(
         model_name=EMBED_MODEL_ID,
