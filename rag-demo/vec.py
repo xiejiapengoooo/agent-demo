@@ -1,11 +1,12 @@
+import json
+from html.parser import HTMLParser
 from pathlib import Path
+from typing import Any
 
-from docling_core.transforms.chunker.hybrid_chunker import HybridChunker
-from docling_core.transforms.chunker.tokenizer.huggingface import HuggingFaceTokenizer
 from langchain_community.vectorstores import FAISS
-from langchain_docling import DoclingLoader
-from langchain_docling.loader import ExportType
+from langchain_core.documents import Document
 from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 from transformers import AutoTokenizer
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -13,59 +14,159 @@ SOURCE_DIR = BASE_DIR / "source"
 MINERU_OUTPUT_DIR = BASE_DIR / "mineru-output"
 DB_DIR = BASE_DIR / "db"
 EMBED_MODEL_ID = "BAAI/bge-m3"
+CHUNK_SIZE = 500
+CHUNK_OVERLAP = 80
+SKIP_TYPES = {"header", "footer", "page_header", "page_footer", "page_number"}
 
 source_files = list(SOURCE_DIR.rglob("*.pdf"))
 mineru_output_files = list(MINERU_OUTPUT_DIR.rglob("*_content_list_v2.json"))
 
-tokenizer = HuggingFaceTokenizer(
-    tokenizer=AutoTokenizer.from_pretrained(EMBED_MODEL_ID)
-)
+
+class HTMLTextParser(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.parts: list[str] = []
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if tag in {"br", "p", "tr"}:
+            self.parts.append("\n")
+        elif tag in {"td", "th"}:
+            self.parts.append(" | ")
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag in {"p", "tr"}:
+            self.parts.append("\n")
+
+    def handle_data(self, data: str) -> None:
+        self.parts.append(data)
 
 
-def get_page_no(metadata: dict) -> int | None:
-    dl_meta = metadata.get("dl_meta", {})
-    doc_items = dl_meta.get("doc_items", [])
+def clean_text(text: str) -> str:
+    lines = [" ".join(line.split()).strip(" |") for line in text.splitlines()]
+    return "\n".join(line for line in lines if line)
 
-    for item in doc_items:
-        for prov in item.get("prov", []):
-            page_no = prov.get("page_no")
-            if page_no is not None:
-                return page_no
 
-    return None
+def html_to_text(value: str) -> str:
+    parser = HTMLTextParser()
+    parser.feed(value)
+    return clean_text("".join(parser.parts))
+
+
+def collect_text(value: Any) -> list[str]:
+    parts: list[str] = []
+
+    if isinstance(value, str):
+        parts.append(value)
+    elif isinstance(value, list):
+        for item in value:
+            parts.extend(collect_text(item))
+    elif isinstance(value, dict):
+        for key, item in value.items():
+            if key == "html" and isinstance(item, str):
+                parts.append(html_to_text(item))
+            elif isinstance(item, str):
+                if key in {
+                    "content",
+                    "text",
+                    "latex",
+                    "formula",
+                    "caption",
+                    "ocr_text",
+                } or key.endswith("_content"):
+                    parts.append(item)
+            elif isinstance(item, (dict, list)):
+                parts.extend(collect_text(item))
+
+    return parts
+
+
+def load_blocks(path: Path) -> list[dict]:
+    pages = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(pages, list):
+        raise TypeError(f"expected a list in {path}")
+
+    blocks: list[dict] = []
+    for page_index, page in enumerate(pages):
+        if not isinstance(page, list):
+            continue
+
+        for block in page:
+            if not isinstance(block, dict):
+                continue
+
+            block_type = str(block.get("type", "unknown"))
+            if block_type in SKIP_TYPES:
+                continue
+
+            text = clean_text("\n".join(collect_text(block.get("content"))))
+            if text:
+                blocks.append(
+                    {
+                        "text": text,
+                        "type": block_type,
+                        "page_no": page_index + 1,
+                    }
+                )
+
+    return blocks
+
+
+def build_documents(path: Path, splitter) -> list[Document]:
+    document_id = path.name.removesuffix("_content_list_v2.json")
+
+    try:
+        source = next(
+            (str(pdf) for pdf in source_files if pdf.stem == document_id),
+        )
+    except StopIteration:
+        raise FileNotFoundError(f"找不到文档: {document_id}")
+
+    pages: dict[int, list[dict]] = {}
+    for block in load_blocks(path):
+        pages.setdefault(block["page_no"], []).append(block)
+
+    page_documents = [
+        Document(
+            page_content="\n\n".join(block["text"] for block in blocks),
+            metadata={
+                "document_id": document_id,
+                "source": source,
+                "page_no": page_no,
+                "block_types": ",".join(
+                    dict.fromkeys(block["type"] for block in blocks)
+                ),
+            },
+        )
+        for page_no, blocks in sorted(pages.items())
+    ]
+    documents = splitter.split_documents(page_documents)
+    for index, document in enumerate(documents):
+        document.metadata["chunk_id"] = f"{document_id}_{index}"
+
+    return documents
 
 
 if __name__ == "__main__":
-    all_docs = []
-
-    for source_file in source_files:
-        loader = DoclingLoader(
-            file_path=str(source_file),
-            export_type=ExportType.DOC_CHUNKS,
-            chunker=HybridChunker(
-                tokenizer=tokenizer,
-                merge_peers=True,
-            ),
+    tokenizer = AutoTokenizer.from_pretrained(EMBED_MODEL_ID)
+    splitter = RecursiveCharacterTextSplitter.from_huggingface_tokenizer(
+        tokenizer,
+        chunk_size=CHUNK_SIZE,
+        chunk_overlap=CHUNK_OVERLAP,
+        separators=["\n\n", "\n", "。", "；", "，", " ", ""],
+    )
+    all_docs = [
+        doc
+        for output_file in mineru_output_files
+        for doc in build_documents(output_file, splitter)
+    ]
+    if not all_docs:
+        raise FileNotFoundError(
+            f"no *_content_list_v2.json files found in {MINERU_OUTPUT_DIR}"
         )
-
-        docs = loader.load()
-        for index, doc in enumerate(docs):
-            doc.metadata.update(
-                {
-                    "document_id": source_file.stem,
-                    "chunk_id": f"{source_file.stem}-{index}",
-                    "source": str(source_file),
-                    "page_no": get_page_no(doc.metadata),
-                }
-            )
-
-        all_docs.extend(docs)
 
     embeddings = HuggingFaceEmbeddings(
         model_name=EMBED_MODEL_ID,
-        encode_kwargs={
-            "normalize_embeddings": True,
-        },
+        encode_kwargs={"normalize_embeddings": True},
     )
 
     vector_store = FAISS.from_documents(
