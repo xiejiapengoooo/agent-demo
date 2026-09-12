@@ -76,11 +76,11 @@ def run_mineru() -> list[Path]:
             "--output",
             str(MINERU_OUTPUT_DIR),
             "--backend",
-            "pipeline",
+            "hybrid-engine",
             "--method",
             "auto",
             # "--lang",
-            # "ch",
+            # "korean",
         ],
         check=True,
     )
