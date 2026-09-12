@@ -79,8 +79,8 @@ def run_mineru() -> list[Path]:
             "pipeline",
             "--method",
             "auto",
-            "--lang",
-            "ch",
+            # "--lang",
+            # "ch",
         ],
         check=True,
     )
