@@ -13,4 +13,5 @@ dependencies = [
     "langchain-huggingface>=1.2.2",
     "langchain-text-splitters>=1.1.2",
     "mineru[all]>=3.4.5",
+    "sentence-transformers>=5.7.0",
 ]
